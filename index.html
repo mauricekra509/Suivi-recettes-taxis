@@ -1,0 +1,274 @@
+<!DOCTYPE html><html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi des Recettes de Taxis - Gestion Complète</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background: #f1f1f1;
+        }
+        .highlight {
+            background-color: #007bff;
+            color: white;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px 5px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .day {
+            padding: 10px;
+            background: #e9e9e9;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+        }
+        .day:hover {
+            background: #d4d4d4;
+        }
+        .day.active {
+            background: #007bff;
+            color: #fff;
+        }
+        .day.has-data {
+            background: #28a745;
+            color: #fff;
+        }
+        .weekly-summary, .day-summary {
+            margin-top: 20px;
+            padding: 10px;
+            background: #d9edf7;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Suivi des Recettes de Taxis</h1>
+    <div class="container">
+        <h2>Gestion des Données Hebdomadaires</h2>
+        <button onclick="previousWeek()">Semaine Précédente</button>
+        <button onclick="nextWeek()">Semaine Suivante</button>
+        <h3 id="week-range"></h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Montant versé</th>
+                    <th>Dépenses</th>
+                    <th>Justification</th>
+                </tr>
+            </thead>
+            <tbody id="daily-table"></tbody>
+        </table>
+        <button onclick="saveWeeklyData()">Enregistrer la semaine</button>
+        <div class="weekly-summary">
+            <h3>Résumé Hebdomadaire</h3>
+            <p>Total des montants versés : <span id="weekly-amounts">0</span> F</p>
+            <p>Total des dépenses : <span id="weekly-expenses">0</span> F</p>
+            <p>Montant total incluant les dépenses : <span id="weekly-total">0</span> F</p>
+        </div><h2>Calendrier Mensuel</h2>
+    <button onclick="previousMonth()">Mois Précédent</button>
+    <button onclick="nextMonth()">Mois Suivant</button>
+    <h3 id="month-year"></h3>
+    <div class="calendar" id="calendar"></div>
+    <div class="day-summary">
+        <h3>Données du Jour Sélectionné</h3>
+        <div id="day-details">Cliquez sur un jour pour voir les détails.</div>
+    </div>
+</div>
+
+<script>
+    let currentWeekStart = new Date();
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
+    const today = new Date();
+    currentWeekStart.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
+
+    function generateWeekTable() {
+        const tableBody = document.getElementById('daily-table');
+        tableBody.innerHTML = '';
+        const startOfWeek = new Date(currentWeekStart);
+        const calendarData = JSON.parse(localStorage.getItem('calendarData')) || {};
+        let totalAmounts = 0, totalExpenses = 0, totalIncludingExpenses = 0;
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + i);
+            const dateKey = date.toDateString();
+            const savedData = calendarData[dateKey] || { amount: 0, expense: 0, justification: '' };
+            totalAmounts += parseFloat(savedData.amount);
+            totalExpenses += parseFloat(savedData.expense);
+            totalIncludingExpenses += parseFloat(savedData.amount) + parseFloat(savedData.expense);
+            tableBody.innerHTML += `<tr data-date="${dateKey}" onclick="showDayData('${dateKey}')">
+                <td>${date.toLocaleDateString()}</td>
+                <td><input type="number" value="${savedData.amount}" class="daily-amount"></td>
+                <td><input type="number" value="${savedData.expense}" class="daily-expense"></td>
+                <td><input type="text" value="${savedData.justification}" class="daily-justification"></td>
+            </tr>`;
+        }
+        document.getElementById('weekly-amounts').textContent = totalAmounts.toFixed(2);
+        document.getElementById('weekly-expenses').textContent = totalExpenses.toFixed(2);
+        document.getElementById('weekly-total').textContent = totalIncludingExpenses.toFixed(2);
+    }
+
+    function previousWeek() {
+        currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+        generateWeekTable();
+    }
+
+    function nextWeek() {
+        currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+        generateWeekTable();
+    }
+
+    function saveWeeklyData() {
+        const rows = document.querySelectorAll('#daily-table tr');
+        const calendarData = JSON.parse(localStorage.getItem('calendarData')) || {};
+        rows.forEach(row => {
+            const date = row.dataset.date;
+            const amount = row.querySelector('.daily-amount').value || 0;
+            const expense = row.querySelector('.daily-expense').value || 0;
+            const justification = row.querySelector('.daily-justification').value || '';
+            calendarData[date] = { amount, expense, justification };
+        });
+        localStorage.setItem('calendarData', JSON.stringify(calendarData));
+        alert('Données sauvegardées avec succès !');
+        generateCalendar();
+    }
+
+    function generateCalendar() {
+        const calendar = document.getElementById('calendar');
+        calendar.innerHTML = '';
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const calendarData = JSON.parse(localStorage.getItem('calendarData')) || {};
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(currentYear, currentMonth, day);
+            const dateKey = date.toDateString();
+            const dayDiv = document.createElement('div');
+            dayDiv.classList.add('day');
+            dayDiv.textContent = day;
+            if (calendarData[dateKey]) {
+                dayDiv.classList.add('has-data');
+            }
+            dayDiv.addEventListener('click', () => showDayData(dateKey));
+            calendar.appendChild(dayDiv);
+        }
+    }
+
+    function showDayData(dateKey) {
+        const calendarData = JSON.parse(localStorage.getItem('calendarData')) || {};
+        const data = calendarData[dateKey];
+        const dayDetails = document.getElementById('day-details');
+        if (data) {
+            dayDetails.innerHTML = `<p><strong>Date :</strong> ${dateKey}</p>
+                <p><strong>Montant versé :</strong> ${data.amount} F</p>
+                <p><strong>Dépenses :</strong> ${data.expense} F</p>
+                <p><strong>Justification :</strong> ${data.justification}</p>`;
+        } else {
+            dayDetails.innerHTML = <p>Aucune donnée enregistrée pour ce jour.</p>;
+        }
+    }
+
+    function previousMonth() {
+        currentMonth--;
+        if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+        }
+        generateCalendar();
+    }
+
+    function nextMonth() {
+        currentMonth++;
+        if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+        }
+        generateCalendar();
+    }
+    
+    // Naviguer vers la semaine correspondant au jour cliqué
+function jumpToWeek(dateKey) {
+    const clickedDate = new Date(dateKey);
+    currentWeekStart = new Date(clickedDate);
+    currentWeekStart.setDate(clickedDate.getDate() - (clickedDate.getDay() === 0 ? 6 : clickedDate.getDay() - 1));
+    generateWeekTable();
+    highlightTableRow(dateKey);
+}
+
+// Met en surbrillance la ligne correspondant au jour sélectionné dans le tableau
+function highlightTableRow(dateKey) {
+    const rows = document.querySelectorAll('#daily-table tr');
+    rows.forEach(row => {
+        row.classList.remove('highlight');
+        if (row.dataset.date === dateKey) {
+            row.classList.add('highlight');
+        }
+    });
+}
+
+// Affiche les détails du jour sélectionné et appelle les fonctions de surbrillance et de semaine
+function showDayData(dateKey) {
+    jumpToWeek(dateKey);
+    const calendarData = JSON.parse(localStorage.getItem('calendarData')) || {};
+    const data = calendarData[dateKey];
+    const dayDetails = document.getElementById('day-details');
+
+    if (data) {
+        dayDetails.innerHTML = `<p><strong>Date :</strong> ${dateKey}</p>
+            <p><strong>Montant versé :</strong> ${data.amount} F</p>
+            <p><strong>Dépenses :</strong> ${data.expense} F</p>
+            <p><strong>Justification :</strong> ${data.justification}</p>`;
+    } else {
+        dayDetails.innerHTML = <p>Aucune donnée enregistrée pour ce jour.</p>;
+    }
+}
+
+    window.onload = () => {
+        generateWeekTable();
+        generateCalendar();
+    };
+</script>
+
+</body>
+</html>
